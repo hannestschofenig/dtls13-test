@@ -3,30 +3,20 @@
 # To compile with PKCS11: add "-lpkcs11-helper" to LDFLAGS
 
 CFLAGS	?= -O2
-WARNING_CFLAGS ?= -Wall -Wextra
-WARNING_CXXFLAGS ?= -Wall -Wextra
+WARNING_CFLAGS ?= -Wall -W -Wdeclaration-after-statement
 LDFLAGS ?=
 
-MBEDTLS_TEST_PATH:=../tests/src
-MBEDTLS_TEST_OBJS:=$(patsubst %.c,%.o,$(wildcard ${MBEDTLS_TEST_PATH}/*.c ${MBEDTLS_TEST_PATH}/drivers/*.c))
-
-LOCAL_CFLAGS = $(WARNING_CFLAGS) -I../tests/include -I../include -D_FILE_OFFSET_BITS=64
-LOCAL_CXXFLAGS = $(WARNING_CXXFLAGS) -I../include -D_FILE_OFFSET_BITS=64
-LOCAL_LDFLAGS = ${MBEDTLS_TEST_OBJS} 		\
-		-L../library 			\
+LOCAL_CFLAGS = $(WARNING_CFLAGS) -I../include -D_FILE_OFFSET_BITS=64
+LOCAL_LDFLAGS = -L../library 			\
 		-lmbedtls$(SHARED_SUFFIX)	\
 		-lmbedx509$(SHARED_SUFFIX)	\
 		-lmbedcrypto$(SHARED_SUFFIX)
 
-include ../3rdparty/Makefile.inc
-LOCAL_CFLAGS+=$(THIRDPARTY_INCLUDES)
-
 ifndef SHARED
-MBEDLIBS=../library/libmbedcrypto.a ../library/libmbedx509.a ../library/libmbedtls.a
+DEP=../library/libmbedcrypto.a ../library/libmbedx509.a ../library/libmbedtls.a
 else
-MBEDLIBS=../library/libmbedcrypto.$(DLEXT) ../library/libmbedx509.$(DLEXT) ../library/libmbedtls.$(DLEXT)
+DEP=../library/libmbedcrypto.$(DLEXT) ../library/libmbedx509.$(DLEXT) ../library/libmbedtls.$(DLEXT)
 endif
-DEP=${MBEDLIBS} ${MBEDTLS_TEST_OBJS}
 
 ifdef DEBUG
 LOCAL_CFLAGS += -g3
@@ -45,7 +35,7 @@ ifdef SHARED
 SHARED_SUFFIX=.$(DLEXT)
 endif
 else
-DLEXT ?= so
+DLEXT=so
 EXEXT=
 SHARED_SUFFIX=
 endif
@@ -55,44 +45,21 @@ ifdef ZLIB
 LOCAL_LDFLAGS += -lz
 endif
 
-APPS = \
-	ssl/ssl_client2$(EXEXT) \
-	ssl/ssl_server2$(EXEXT) \
-# End of APPS
+APPS =	ssl/ssl_client2$(EXEXT)		\
+	ssl/ssl_server2$(EXEXT)
 
-
-EXTRA_GENERATED =
+ifdef PTHREAD
+APPS +=	ssl/ssl_pthread_server$(EXEXT)
+endif
 
 .SILENT:
 
-.PHONY: all clean list fuzz
+.PHONY: all clean list
 
 all: $(APPS)
-ifndef WINDOWS
-# APPS doesn't include the fuzzing programs, which aren't "normal"
-# sample or test programs, and don't build with MSVC which is
-# warning about fopen
-all: fuzz
-endif
 
-fuzz: ${MBEDTLS_TEST_OBJS}
-	$(MAKE) -C fuzz THIRDPARTY_INCLUDES=$(THIRDPARTY_INCLUDES)
-
-$(MBEDLIBS):
+$(DEP):
 	$(MAKE) -C ../library
-
-${MBEDTLS_TEST_OBJS}:
-	$(MAKE) -C ../tests mbedtls_test
-
-ifdef WINDOWS
-EXTRA_GENERATED += psa\psa_constant_names_generated.c
-else
-EXTRA_GENERATED += psa/psa_constant_names_generated.c
-endif
-
-psa/psa_constant_names$(EXEXT): psa/psa_constant_names_generated.c
-psa/psa_constant_names_generated.c: ../scripts/generate_psa_constants.py ../include/psa/crypto_values.h ../include/psa/crypto_extra.h
-	../scripts/generate_psa_constants.py
 
 aes/aescrypt2$(EXEXT): aes/aescrypt2.c $(DEP)
 	echo "  CC    aes/aescrypt2.c"
@@ -190,14 +157,6 @@ pkey/rsa_encrypt$(EXEXT): pkey/rsa_encrypt.c $(DEP)
 	echo "  CC    pkey/rsa_encrypt.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) pkey/rsa_encrypt.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
-psa/key_ladder_demo$(EXEXT): psa/key_ladder_demo.c $(DEP)
-	echo "  CC    psa/key_ladder_demo.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) psa/key_ladder_demo.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
-psa/psa_constant_names$(EXEXT): psa/psa_constant_names.c $(DEP)
-	echo "  CC    psa/psa_constant_names.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) psa/psa_constant_names.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
 random/gen_entropy$(EXEXT): random/gen_entropy.c $(DEP)
 	echo "  CC    random/gen_entropy.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) random/gen_entropy.c $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
@@ -222,21 +181,17 @@ ssl/ssl_client1$(EXEXT): ssl/ssl_client1.c $(DEP)
 	echo "  CC    ssl/ssl_client1.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_client1.c  $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
-ssl/ssl_client2$(EXEXT): ssl/ssl_client2.c test/query_config.c $(DEP)
+ssl/ssl_client2$(EXEXT): ssl/ssl_client2.c $(DEP)
 	echo "  CC    ssl/ssl_client2.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_client2.c test/query_config.c $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_client2.c  $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 ssl/ssl_server$(EXEXT): ssl/ssl_server.c $(DEP)
 	echo "  CC    ssl/ssl_server.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
-ssl/ssl_server2$(EXEXT): ssl/ssl_server2.c test/query_config.c $(DEP)
+ssl/ssl_server2$(EXEXT): ssl/ssl_server2.c $(DEP)
 	echo "  CC    ssl/ssl_server2.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server2.c test/query_config.c $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
-ssl/ssl_context_info$(EXEXT): ssl/ssl_context_info.c test/query_config.c $(DEP)
-	echo "  CC    ssl/ssl_context_info.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_context_info.c test/query_config.c $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/ssl_server2.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 ssl/ssl_fork_server$(EXEXT): ssl/ssl_fork_server.c $(DEP)
 	echo "  CC    ssl/ssl_fork_server.c"
@@ -254,13 +209,13 @@ ssl/mini_client$(EXEXT): ssl/mini_client.c $(DEP)
 	echo "  CC    ssl/mini_client.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) ssl/mini_client.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
+test/ssl_cert_test$(EXEXT): test/ssl_cert_test.c $(DEP)
+	echo "  CC    test/ssl_cert_test.c"
+	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) test/ssl_cert_test.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
+
 test/benchmark$(EXEXT): test/benchmark.c $(DEP)
 	echo "  CC    test/benchmark.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) test/benchmark.c   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
-test/cpp_dummy_build$(EXEXT): test/cpp_dummy_build.cpp $(DEP)
-	echo "  CXX   test/cpp_dummy_build.cpp"
-	$(CXX) $(LOCAL_CXXFLAGS) $(CXXFLAGS) test/cpp_dummy_build.cpp   $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 test/selftest$(EXEXT): test/selftest.c $(DEP)
 	echo "  CC    test/selftest.c"
@@ -269,14 +224,6 @@ test/selftest$(EXEXT): test/selftest.c $(DEP)
 test/udp_proxy$(EXEXT): test/udp_proxy.c $(DEP)
 	echo "  CC    test/udp_proxy.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) test/udp_proxy.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
-test/zeroize$(EXEXT): test/zeroize.c $(DEP)
-	echo "  CC    test/zeroize.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) test/zeroize.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
-test/query_compile_time_config$(EXEXT): test/query_compile_time_config.c test/query_config.c $(DEP)
-	echo "  CC    test/query_compile_time_config.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) test/query_compile_time_config.c test/query_config.c $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
 util/pem2der$(EXEXT): util/pem2der.c $(DEP)
 	echo "  CC    util/pem2der.c"
@@ -306,22 +253,12 @@ x509/req_app$(EXEXT): x509/req_app.c $(DEP)
 	echo "  CC    x509/req_app.c"
 	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) x509/req_app.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
 
-psa/crypto_examples$(EXEXT): psa/crypto_examples.c $(DEP)
-	echo "  CC    psa/crypto_examples.c"
-	$(CC) $(LOCAL_CFLAGS) $(CFLAGS) psa/crypto_examples.c    $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@
-
 clean:
 ifndef WINDOWS
 	rm -f $(APPS)
-	-rm -f ssl/ssl_pthread_server$(EXEXT)
-	rm -f $(EXTRA_GENERATED)
-	-rm -f test/cpp_dummy_build$(EXEXT)
 else
-	if exist *.o del /Q /F *.o
-	if exist *.exe del /Q /F *.exe
-	del /S /Q /F $(EXTRA_GENERATED)
+	del /S /Q /F *.o *.exe
 endif
-	$(MAKE) -C fuzz clean
 
 list:
 	echo $(APPS)
