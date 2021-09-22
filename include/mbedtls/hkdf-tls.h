@@ -29,7 +29,10 @@
 #include MBEDTLS_CONFIG_FILE
 #endif
 
-#include "mbedtls/md.h"
+//#include "mbedtls/md.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/ssl_internal.h"
+
 //#include "sha_new.h"
 
 #define MBEDTLS_ERR_HKDF_BUFFER_TOO_SMALL                  -0x6A00  /**< A buffer is too small to store label */
@@ -40,16 +43,7 @@
 extern "C" {
 #endif
 
-/**
-* \brief          KeySet data structure holding client/server write keys 
-*                 as well as the respective IVs. 
-*/
-typedef struct KeySet {
-    unsigned char *clientWriteKey;
-    unsigned char *serverWriteKey;
-    unsigned char *clientWriteIV;
-    unsigned char *serverWriteIV;
-} KeySet;
+
 
 /**
  * \brief           hkdfEncodeLabel creates the HkdfLabel structure.
@@ -86,6 +80,7 @@ int hkdfEncodeLabel(const unsigned char *label, int llen,
  * the parameter message contains the already hashed value and
  * the Derive-Secret function does not need to hash it again.
  *
+ * \param ssl     mbedtls_ssl_context 
  * \param secret  Secret key
  * \param slen    Length of secret
  * \param label   Label
@@ -101,7 +96,7 @@ int hkdfEncodeLabel(const unsigned char *label, int llen,
  *                  or MBEDTLS_ERR_HKDF_ALLOC_FAILED
  */
 
-int Derive_Secret(mbedtls_md_type_t hash_alg, const unsigned char *secret, int slen,
+int Derive_Secret(mbedtls_ssl_context *ssl, mbedtls_md_type_t hash_alg, const unsigned char *secret, int slen,
                   const unsigned char *label, int llen,
                   const unsigned char *message, int mlen,
                   unsigned char *dstbuf, int buflen);
@@ -125,7 +120,7 @@ int Derive_Secret(mbedtls_md_type_t hash_alg, const unsigned char *secret, int s
 *
 */ 
 
-int makeTrafficKeys(int hash_alg, 
+int makeTrafficKeys(mbedtls_md_type_t hash_alg,
 	                const unsigned char *client_key,
 	                const unsigned char *server_key,
 	                int slen, int keyLen, int ivLen, KeySet *keys);
@@ -154,7 +149,7 @@ int makeTrafficKeys(int hash_alg,
 *                  or MBEDTLS_ERR_MD_ALLOC_FAILED
 */
 
-int hkdfExpandLabel(int hash_alg, const unsigned char *secret,
+int hkdfExpandLabel(mbedtls_md_type_t  hash_alg, const unsigned char *secret,
                     int slen, const unsigned char *label, int llen,
                     const unsigned char *hashValue, int hlen, int length,
                     unsigned char *buf, int blen);

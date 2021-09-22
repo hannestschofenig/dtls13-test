@@ -368,9 +368,10 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 			mbedtls_snprintf(buf, buflen, "TLS -  Problem encountered with the supported versions extension");		
 		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_PSK_KEY_EXCHANGE_MODES_EXT))
 			mbedtls_snprintf(buf, buflen, "TLS -  Problem encountered with the psk key exchange modes extension");
+		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_CID_EXT))
+			mbedtls_snprintf(buf, buflen, "TLS -  The CID extension could not be parsed correctly");
 		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_MISSING_EXTENSION_EXT))
 			mbedtls_snprintf(buf, buflen, "TLS -  Handshake is missing a required extension");
-
         if( use_ret == -(MBEDTLS_ERR_SSL_FATAL_ALERT_MESSAGE) )
         {
             mbedtls_snprintf( buf, buflen, "TLS - A fatal alert message was received from our peer" );
@@ -382,7 +383,11 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
             mbedtls_snprintf( buf, buflen, "TLS - The peer notified us that the connection is going to be closed" );
         if( use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO) )
             mbedtls_snprintf( buf, buflen, "TLS - Processing of the ClientHello handshake message failed" );
-        if( use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO) )
+		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO_CCS))
+			mbedtls_snprintf(buf, buflen, "TLS - Processing of the ClientHello handshake message failed; CCS received instead");
+		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO_CCS))
+			mbedtls_snprintf(buf, buflen, "TLS - Processing of the ServerHello handshake message failed; CCS received instead");
+		if( use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO) )
             mbedtls_snprintf( buf, buflen, "TLS - Processing of the ServerHello handshake message failed" );
         if( use_ret == -(MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE) )
             mbedtls_snprintf( buf, buflen, "TLS - Processing of the Certificate handshake message failed" );
@@ -406,6 +411,8 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
             mbedtls_snprintf( buf, buflen, "TLS - Processing of the Finished handshake message failed" );
 		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_EARLY_DATA))
 			mbedtls_snprintf(buf, buflen, "TLS - Processing of the Early Data payload failed.");
+		if (use_ret == -(MBEDTLS_ERR_SSL_BAD_ACK))
+			mbedtls_snprintf(buf, buflen, "TLS - Processing of the Ack message failed.");
 		if( use_ret == -(MBEDTLS_ERR_SSL_ALLOC_FAILED) )
             mbedtls_snprintf( buf, buflen, "TLS - Memory allocation failed" );
         if( use_ret == -(MBEDTLS_ERR_SSL_HW_ACCEL_FAILED) )

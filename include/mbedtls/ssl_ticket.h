@@ -71,7 +71,7 @@ typedef struct
 
     uint32_t ticket_lifetime;       /*!< lifetime of tickets in seconds     */
 #if defined(MBEDTLS_SSL_NEW_SESSION_TICKET)
-	uint32_t flags;              /*!< ticket flags                       */
+	TicketFlags flags;              /*!< ticket flags                       */
 #endif 
     /** Callback for getting (pseudo-)random numbers                        */
     int  (*f_rng)(void *, unsigned char *, size_t);

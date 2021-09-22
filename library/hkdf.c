@@ -15,11 +15,15 @@ int mbedtls_hkdf(const mbedtls_md_info_t *md, const unsigned char *salt,
                  const unsigned char *info, int info_len, unsigned char *okm,
                  int okm_len)
 {
+	int ret; 
     unsigned char prk[MBEDTLS_MD_MAX_SIZE];
 
-    return mbedtls_hkdf_extract(md, salt, salt_len, ikm, ikm_len, prk) ||
-           mbedtls_hkdf_expand(md, prk, mbedtls_md_get_size(md), info, info_len,
-                               okm, okm_len);
+	ret = mbedtls_hkdf_extract(md, salt, salt_len, ikm, ikm_len, prk); 
+	
+	if (ret == 0) {
+		ret = mbedtls_hkdf_expand(md, prk, mbedtls_md_get_size(md), info, info_len, okm, okm_len);
+	} 
+	return ret;
 }
 
 /* HKDF-Extract(salt, IKM) -> PRK */
@@ -36,6 +40,10 @@ int mbedtls_hkdf_extract(const mbedtls_md_info_t *md, const unsigned char *salt,
 
     hash_len = mbedtls_md_get_size(md);
 
+	if (hash_len==0) {
+		return MBEDTLS_ERR_HKDF_BAD_PARAM;
+	}
+
     if (salt == NULL) {
         salt = null_salt;
         salt_len = hash_len;
@@ -49,7 +57,6 @@ int mbedtls_hkdf_expand(const mbedtls_md_info_t *md, const unsigned char *prk,
                         int prk_len, const unsigned char *info, int info_len,
                         unsigned char *okm, int okm_len)
 {
-//	int u = MBEDTLS_MD_MAX_SIZE; 
 	unsigned char T[MBEDTLS_MD_MAX_SIZE];
 	int T_len = 0, where = 0, i, ret;
 	mbedtls_md_context_t ctx;
@@ -63,12 +70,13 @@ int mbedtls_hkdf_expand(const mbedtls_md_info_t *md, const unsigned char *prk,
 
     hash_len = mbedtls_md_get_size(md);
 
-    if (prk_len < hash_len) {
+    if ( (prk_len < hash_len) || (hash_len==0) ){
         return(MBEDTLS_ERR_HKDF_BAD_PARAM);
     }
 
     if (info == NULL) {
         info = (const unsigned char *)"";
+		info_len = 0;
     }
 
     N = okm_len / hash_len;
@@ -100,6 +108,7 @@ int mbedtls_hkdf_expand(const mbedtls_md_info_t *md, const unsigned char *prk,
               mbedtls_md_hmac_finish(&ctx, T);
 
         if (ret != 0) {
+			mbedtls_md_free(&ctx); 
             return ret;
         }
 
@@ -107,6 +116,8 @@ int mbedtls_hkdf_expand(const mbedtls_md_info_t *md, const unsigned char *prk,
         where += hash_len;
         T_len = hash_len;
     }
+
+	mbedtls_md_free(&ctx);
 
     return 0;
 }

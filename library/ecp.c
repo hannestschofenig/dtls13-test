@@ -649,8 +649,13 @@ int mbedtls_ecp_tls_read_group( mbedtls_ecp_group *grp, const unsigned char **bu
     tls_id <<= 8;
     tls_id |= *(*buf)++;
 
-    if( ( curve_info = mbedtls_ecp_curve_info_from_tls_id( tls_id ) ) == NULL )
-        return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
+	curve_info = mbedtls_ecp_curve_info_from_tls_id(tls_id); 
+
+	if (curve_info == NULL) {
+//		MBEDTLS_SSL_DEBUG_MSG(5, ("Unknown named curve: %d",tls_id));
+		return(MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE);
+	} 
+//	MBEDTLS_SSL_DEBUG_MSG(5, ("Named Curve: %s, %d", mbedtls_ecp_curve_info_from_tls_id(tls_id)->name, tls_id));
 
     return mbedtls_ecp_group_load( grp, curve_info->grp_id );
 }
@@ -674,6 +679,7 @@ int mbedtls_ecp_tls_write_group( const mbedtls_ecp_group *grp, size_t *olen,
 	// Two bytes for named curve
 	buf[0] = curve_info->tls_id >> 8;
 	buf[1] = curve_info->tls_id & 0xFF;
+
 #else 
 	/*
 	* We are going to write 3 bytes (see below)

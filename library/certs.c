@@ -30,16 +30,24 @@
 #if defined(MBEDTLS_CERTS_C)
 
 #if defined(MBEDTLS_ECDSA_C)
+
+/* Certificate with 
+ *  - Key Size: EC 256 bits 
+ *  - Subject:	CN = CA
+ *  - Signature Algorithm: ecdsa-with-SHA256
+ *  - Valid: 16 Nov 2027
+ *  - CA cert: yes
+ */
 #define TEST_CA_CRT_EC \
 "-----BEGIN CERTIFICATE-----\r\n" \
-"MIIBYDCCAQegAwIBAgIJAITUs1Np1mGBMAoGCCqGSM49BAMCMA0xCzAJBgNVBAMM\r\n" \
-"AkNBMB4XDTE2MTExNDA2MDY1MloXDTI2MTExMjA2MDY1MlowDTELMAkGA1UEAwwC\r\n" \
-"Q0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATjqZhTAPwA87nTx7VlxR0ZIRv4\r\n" \
-"6CfPitCICUVV/ARxoCAfGtc4vcdWjqoW4Xeksiim5X34NMP5e9H+5mrgsSHPo1Aw\r\n" \
-"TjAdBgNVHQ4EFgQU/X+hZ3HltTT6PwEa19fGG1PsQYQwHwYDVR0jBBgwFoAU/X+h\r\n" \
-"Z3HltTT6PwEa19fGG1PsQYQwDAYDVR0TBAUwAwEB/zAKBggqhkjOPQQDAgNHADBE\r\n" \
-"AiAwskBOw24+wBwzY5sd30YZf0QL1J7Ee+B8t6kAfDotmQIgQbd0omxLazZTDZO0\r\n" \
-"xXGUsD3obvuM9H8wbclJ/BKgn3o=\r\n" \
+"MIIBYTCCAQegAwIBAgIJAMCAyUS79PpHMAoGCCqGSM49BAMCMA0xCzAJBgNVBAMM\r\n" \
+"AkNBMB4XDTE3MTExODEwMTcyOVoXDTI3MTExNjEwMTcyOVowDTELMAkGA1UEAwwC\r\n" \
+"Q0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARVW3J979Zw+etW4nz0777JlKPG\r\n" \
+"nncgteZyfsdNS7/7NnypSVCAlO46fqyn0JHtiZOsBzRWY1dSpdEqd3IH3+Lgo1Aw\r\n" \
+"TjAdBgNVHQ4EFgQULPn6nLanfH58P/GVrJk6L6jFS3gwHwYDVR0jBBgwFoAULPn6\r\n" \
+"nLanfH58P/GVrJk6L6jFS3gwDAYDVR0TBAUwAwEB/zAKBggqhkjOPQQDAgNIADBF\r\n" \
+"AiEA6ilW6IDDh6d30AweYN14pO9ShdDoi/zr58NWDYLCdSsCIBKpxcGnXDXSfJhT\r\n" \
+"1qhSzP/pa0aU0e2sq8NI52eBx3J8\r\n" \
 "-----END CERTIFICATE-----\r\n"; 
 
 /*
@@ -94,21 +102,28 @@ const char mbedtls_test_ca_key_ec[] =
 
 const char mbedtls_test_ca_pwd_ec[] = "PolarSSLTest";
 
+/* Certificate with
+*  - Key Size: EC 256 bits
+*  - Subject:	CN = server.example.com
+*  - Signature Algorithm: ecdsa-with-SHA256
+*  - Valid: 16 Nov 2027
+*  - CA cert: no
+*/
 const char mbedtls_test_srv_crt_ec[] =
-"-----BEGIN CERTIFICATE-----\r\n"
-"MIIBEDCBtwIJANRrvF9yBrg/MAoGCCqGSM49BAMCMA0xCzAJBgNVBAMMAkNBMB4X\r\n"
-"DTE2MTExNDA2MTEzMVoXDTI2MTExMjA2MTEzMVowFDESMBAGA1UEAwwJbG9jYWxo\r\n"
-"b3N0MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAELu+s4t0h5Qw6X8dDbryo1/fd\r\n"
-"2aSrizYJ5Lktc5epE+KYzQ71XLHVSqZhSQQ80UWZZXDeA69k3ym2G6LDQDT7/DAK\r\n"
-"BggqhkjOPQQDAgNIADBFAiEAs3pb86XUkn6Sn82oaW9mKMPyuGQgDB9j6XyYFVOd\r\n"
-"F7ACIGcvQivTk8uJPO47DRlw5QfxrwEuiLWnUHpz6qVih7Uy\r\n"
+"-----BEGIN CERTIFICATE-----\r\n" \
+"MIIBGTCBwAIJAL2QSXVMs4SFMAoGCCqGSM49BAMCMA0xCzAJBgNVBAMMAkNBMB4X\r\n" \
+"DTE3MTExODEwMjMyM1oXDTI3MTExNjEwMjMyM1owHTEbMBkGA1UEAwwSc2VydmVy\r\n" \
+"LmV4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE+LjUSNt4gBTR\r\n" \
+"de0SO7IxUf3ioyHhrudQ97F6xYeq8+E3NJcaEclMtD57l+wLVNc86eHoryUmYN0N\r\n" \
+"rqGjKJ8vZzAKBggqhkjOPQQDAgNIADBFAiEA9hmMq9Gwr3w5JbsSKmHS7GHHcK4N\r\n" \
+"HWEjQKeoxBGNskkCIFjSVNJIdvsFYidCpcu386fPrqHQgXuhzqJbTgsb910Y\r\n" \
 "-----END CERTIFICATE-----\r\n";
 
 const char mbedtls_test_srv_key_ec[] =
-"-----BEGIN EC PRIVATE KEY-----\r\n"
-"MHcCAQEEIPeYCmCrZpFJxTwlWRhY43ljbpOTto8YFM3WkrjkxFauoAoGCCqGSM49\r\n"
-"AwEHoUQDQgAELu+s4t0h5Qw6X8dDbryo1/fd2aSrizYJ5Lktc5epE+KYzQ71XLHV\r\n"
-"SqZhSQQ80UWZZXDeA69k3ym2G6LDQDT7/A==\r\n"
+"-----BEGIN EC PRIVATE KEY-----\r\n" \
+"MHcCAQEEIFvbAKZ5vsNFP0NIZUeomdMPK6rR1FeC0FH5JZ1ywzZuoAoGCCqGSM49\r\n" \
+"AwEHoUQDQgAE+LjUSNt4gBTRde0SO7IxUf3ioyHhrudQ97F6xYeq8+E3NJcaEclM\r\n" \
+"tD57l+wLVNc86eHoryUmYN0NrqGjKJ8vZw==\r\n" \
 "-----END EC PRIVATE KEY-----\r\n";
 
 /* 
@@ -129,21 +144,22 @@ const char mbedtls_test_cli_crt_ec[] =
 "-----END CERTIFICATE-----\r\n";
 */ 
 
+/* Certificate with
+*  - Key Size: EC 256 bits
+*  - Subject:	CN = client.example.com
+*  - Signature Algorithm: ecdsa-with-SHA256
+*  - Valid: 16 Nov 2027
+*  - CA cert: no
+*/
 const char mbedtls_test_cli_crt_ec[] =
-"-----BEGIN CERTIFICATE-----\r\n"
-"MIIB+DCCAZ+gAwIBAgIJANeXI7psApJcMAoGCCqGSM49BAMCMFkxCzAJBgNVBAYT\r\n"
-"AkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRn\r\n"
-"aXRzIFB0eSBMdGQxEjAQBgNVBAMMCWxvY2FsaG9zdDAeFw0xNjExMTIwMjQ0MTla\r\n"
-"Fw0xNzExMTIwMjQ0MTlaMFkxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0\r\n"
-"YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0eSBMdGQxEjAQBgNVBAMM\r\n"
-"CWxvY2FsaG9zdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABKS7iUBx96asWExF\r\n"
-"UUaIqB3RDXc06HI2aldmeziBMpssE/lCDT45OIU7Ogh9pm0632odqsLX6doqexzF\r\n"
-"LGaYGq2jUDBOMB0GA1UdDgQWBBSriV09aRyoYZVwp2yvzvDYwb3ghDAfBgNVHSME\r\n"
-"GDAWgBSriV09aRyoYZVwp2yvzvDYwb3ghDAMBgNVHRMEBTADAQH/MAoGCCqGSM49\r\n"
-"BAMCA0cAMEQCIFaC7LxosPYWTBgiIVypt9hsawagKuHRwc3A5/3SOTczAiA9TXxI\r\n"
-"vCcYsJUlMpuetOPTM+rxxdkgH8NX6tNcBCaAUQ==\r\n"
+"-----BEGIN CERTIFICATE-----\r\n" \
+"MIIBGTCBwAIJAL2QSXVMs4SGMAoGCCqGSM49BAMCMA0xCzAJBgNVBAMMAkNBMB4X\r\n" \
+"DTE3MTExODEwMjQxN1oXDTI3MTExNjEwMjQxN1owHTEbMBkGA1UEAwwSY2xpZW50\r\n" \
+"LmV4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAELNiItwRS5+wD\r\n" \
+"4nxm6oLFO3SxssWnQXXeZHBOg79X2ExyAdXK+XOul+7Blcvao3oFbr0iUK60+U4j\r\n" \
+"9TIQwyzqEzAKBggqhkjOPQQDAgNIADBFAiEArlt3ndUcF6eP0YZlCx6GOFwbSNWH\r\n" \
+"uMhOMJ0i+wF360sCIH2dXhFOGMCeWNbMTQ3ot9TiW367Zxicg+5ZBvDFOjuw\r\n" \
 "-----END CERTIFICATE-----\r\n";
-
 
 /* 
 const char mbedtls_test_cli_key_ec[] =
@@ -156,10 +172,11 @@ const char mbedtls_test_cli_key_ec[] =
 
 const char mbedtls_test_cli_key_ec[] =
 "-----BEGIN EC PRIVATE KEY-----\r\n" \
-"MHcCAQEEIKbJPlvxO33dSIecmnvaM4Tevkzyp2aNqIUuV6PSJFb6oAoGCCqGSM49\r\n" \
-"AwEHoUQDQgAEpLuJQHH3pqxYTEVRRoioHdENdzTocjZqV2Z7OIEymywT+UINPjk4\r\n" \
-"hTs6CH2mbTrfah2qwtfp2ip7HMUsZpgarQ==\r\n" \
+"MHcCAQEEILW+4WBf5kH8sDzktv/P8yDckYaXb7UcjXd/ooR/djWMoAoGCCqGSM49\r\n" \
+"AwEHoUQDQgAELNiItwRS5+wD4nxm6oLFO3SxssWnQXXeZHBOg79X2ExyAdXK+XOu\r\n" \
+"l+7Blcvao3oFbr0iUK60+U4j9TIQwyzqEw==\r\n" \
 "-----END EC PRIVATE KEY-----\r\n";
+
 
 const size_t mbedtls_test_ca_crt_ec_len  = sizeof( mbedtls_test_ca_crt_ec ) + sizeof(mbedtls_test_ca_crt_ec2);
 const size_t mbedtls_test_ca_key_ec_len  = sizeof( mbedtls_test_ca_key_ec );
