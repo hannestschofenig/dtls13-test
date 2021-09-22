@@ -103,6 +103,8 @@ int main( void )
 #define DFL_EXTENDED_MS         -1
 #define DFL_ETM                 -1
 #define DFL_EARLY_DATA      MBEDTLS_SSL_EARLY_DATA_DISABLED
+#define MAX_NAMED_GROUPS        4
+#define DFL_CID                 MBEDTLS_CID_CONF_DISABLED
 
 #define GET_REQUEST "GET %s HTTP/1.0\r\nExtra-header: "
 #define GET_REQUEST_END "\r\n\r\n"
@@ -161,14 +163,14 @@ int main( void )
 #define USAGE_RECSPLIT \
     "    recsplit=0/1        default: (library default: on)\n"
 #else
-#define USAGE_RECSPLIT
+#define USAGE_RECSPLIT "" 
 #endif
 
 #if defined(MBEDTLS_DHM_C)
 #define USAGE_DHMLEN \
     "    dhmlen=%%d           default: (library default: 1024 bits)\n"
 #else
-#define USAGE_DHMLEN
+#define USAGE_DHMLEN ""
 #endif
 
 #if defined(MBEDTLS_SSL_ALPN)
@@ -217,6 +219,23 @@ int main( void )
 #define USAGE_RENEGO ""
 #endif
 
+#if defined(MBEDTLS_ECP_C)
+#define USAGE_NAMED_GROUP \
+    "    named_groups=%%s    default: secp256r1, secp384r1\n"      \
+    "                        options: secp256r1, secp384r1, secp521r1, all\n" 
+#else
+#define USAGE_NAMED_GROUP ""
+#endif 
+
+#if defined(MBEDTLS_ECP_C)
+#define USAGE_KEY_SHARE_NAMED_GROUPS \
+    "    key_share_named_groups=%%s    default: secp256r1, secp384r1\n"      \
+    "                        options: secp256r1, secp384r1, secp521r1, all\n" 
+#else
+#define USAGE_KEY_SHARE_NAMED_GROUPS ""
+#endif 
+
+
 #if defined(MBEDTLS_ZERO_RTT)
 #define USAGE_EARLY_DATA \
     "    early_data=%%s        default: (library default: disabled)\n"      \
@@ -224,6 +243,15 @@ int main( void )
 #else 
 #define USAGE_EARLY_DATA ""
 #endif /* MBEDTLS_ZERO_RTT */
+
+#if defined(MBEDTLS_CID)
+#define USAGE_CID                                       \
+    "    cid=%%s         disabled, enabled, zero\n"       \
+    "                    default: disabled\n"
+#else
+#define USAGE_CID ""
+#endif /* MBEDTLS_CID */
+
 
 #if defined(MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED)
 #define USAGE_ECJPAKE \
@@ -266,12 +294,15 @@ int main( void )
     USAGE_MAX_FRAG_LEN                                      \
     USAGE_TRUNC_HMAC                                        \
     USAGE_ALPN                                              \
+    USAGE_CID                                               \
     USAGE_FALLBACK                                          \
     USAGE_EMS                                               \
     USAGE_ETM                                               \
     USAGE_RECSPLIT                                          \
     USAGE_DHMLEN                                            \
-    USAGE_EARLY_DATA                                            \
+    USAGE_NAMED_GROUP                                       \
+    USAGE_KEY_SHARE_NAMED_GROUPS                            \
+    USAGE_EARLY_DATA                                        \
     "\n"                                                    \
     "    arc4=%%d             default: (library default: 0)\n" \
     "    min_version=%%s      default: (library default: tls1_3)\n"       \
@@ -304,6 +335,8 @@ struct options
     const char *psk_identity;   /* the pre-shared key identity              */
     const char *ecjpake_pw;     /* the EC J-PAKE password                   */
     int force_ciphersuite[2];   /* protocol/ciphersuite to use, or all      */
+	const char *named_groups_string;    /* list of named groups             */
+	const char *key_share_named_groups_string;    /* list of named groups             */
     int renegotiation;          /* enable / disable renegotiation           */
     int allow_legacy;           /* allow legacy renegotiation               */
     int renegotiate;            /* attempt renegotiation?                   */
@@ -330,6 +363,7 @@ struct options
     int etm;                    /* negotiate encrypt then mac?              */
 	unsigned char key_exchange_modes;     /* supported key exchange modes  */
 	int early_data;             /* support for early data */
+	int cid;                    /* connection id      */
 } opt;
 
 static void my_debug( void *ctx, int level,
@@ -412,7 +446,7 @@ static int my_verify( void *data, mbedtls_x509_crt *crt, int depth, uint32_t *fl
 
 int main( int argc, char *argv[] )
 {
-    int ret = 0, len, tail_len, i, written, frags, retry_left;
+	int ret = 0, len, tail_len, i, written, frags; // , retry_left;
     mbedtls_net_context server_fd;
     unsigned char buf[MBEDTLS_SSL_MAX_CONTENT_LEN + 1];
 #if defined(MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED)
@@ -424,6 +458,13 @@ int main( int argc, char *argv[] )
 #if defined(MBEDTLS_SSL_ALPN)
     const char *alpn_list[10];
 #endif
+#if defined(MBEDTLS_ECP_C)
+	mbedtls_ecp_group_id named_groups_list[MAX_NAMED_GROUPS]; /* list of named groups */
+	mbedtls_ecp_group_id key_share_named_groups_list[MAX_NAMED_GROUPS]; /* list of named groups for key share*/
+	char *start;
+#endif
+	
+
     const char *pers = "ssl_client2";
 #if defined(MBEDTLS_ZERO_RTT)
 	char early_data[] = "early data test";
@@ -474,6 +515,10 @@ int main( int argc, char *argv[] )
 #endif
 #if defined(MBEDTLS_SSL_ALPN)
     memset( (void * ) alpn_list, 0, sizeof( alpn_list ) );
+#endif
+#if defined(MBEDTLS_ECP_C)
+	memset((void *)named_groups_list, MBEDTLS_ECP_DP_NONE, sizeof(named_groups_list));
+	memset((void *)key_share_named_groups_list, MBEDTLS_ECP_DP_NONE, sizeof(key_share_named_groups_list));
 #endif
 
     if( argc == 0 )
@@ -540,6 +585,7 @@ int main( int argc, char *argv[] )
     opt.extended_ms         = DFL_EXTENDED_MS;
     opt.etm                 = DFL_ETM;
 	opt.early_data          = DFL_EARLY_DATA; 
+	opt.cid                 = DFL_CID;
 
 	for (i = 1; i < argc; i++)
 	{
@@ -625,6 +671,12 @@ int main( int argc, char *argv[] )
 				opt.key_exchange_modes = KEY_EXCHANGE_MODE_ALL;
 			else goto usage;
 		}
+#if defined(MBEDTLS_ECP_C)
+		else if (strcmp(p, "named_groups") == 0) 
+			opt.named_groups_string = q;
+		else if (strcmp(p, "key_share_named_groups") == 0)
+			opt.key_share_named_groups_string = q;
+#endif
 		else if (strcmp(p, "ecjpake_pw") == 0)
 			opt.ecjpake_pw = q;
 		else if (strcmp(p, "force_ciphersuite") == 0)
@@ -720,6 +772,17 @@ int main( int argc, char *argv[] )
 			case 1: opt.etm = MBEDTLS_SSL_ETM_ENABLED; break;
 			default: goto usage;
 			}
+		}
+		else if (strcmp(p, "cid") == 0)
+		{
+		if (strcmp(q, "disabled") == 0)
+			opt.cid = MBEDTLS_CID_CONF_DISABLED;
+		else if (strcmp(q, "enabled") == 0)
+			opt.cid = MBEDTLS_CID_CONF_ENABLED;
+		else if (strcmp(q, "zero") == 0)
+			opt.cid = MBEDTLS_CID_CONF_ZERO_LENGTH;
+		else
+			goto usage;
 		}
 		else if (strcmp(p, "min_version") == 0)
 		{
@@ -992,6 +1055,85 @@ int main( int argc, char *argv[] )
     }
 #endif /* MBEDTLS_SSL_ALPN */
 
+
+
+#if defined(MBEDTLS_ECP_C)
+	if (opt.named_groups_string != NULL)
+	{
+		p = (char *)opt.named_groups_string;
+		i = 0;
+		start = p;
+
+		/* Leave room for a final NULL in named_groups_list */
+		while (i < (int) sizeof named_groups_list - 1 && *p != '\0')
+		{
+
+			while (*p != ',' && *p != '\0')
+				p++;
+
+			if (*p == ',' || *p == '\0') {
+
+				if (*p == ',')	*p++ = '\0';
+
+					if (strcmp(start, "secp256r1") == 0)
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP256R1;
+					else if (strcmp(start, "secp384r1") == 0)
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP384R1;
+					else if (strcmp(start, "secp521r1") == 0)
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP521R1;
+					else if (strcmp(start, "all") == 0) {
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP256R1;
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP384R1;
+						named_groups_list[i++] = MBEDTLS_ECP_DP_SECP521R1;
+						break;
+					}
+					else goto usage;
+					start = p;
+				
+			}
+		}
+		if (i == 0) goto usage; 
+	}
+
+	if (opt.key_share_named_groups_string != NULL)
+	{
+		p = (char *)opt.key_share_named_groups_string;
+		i = 0;
+		start = p;
+
+		/* Leave room for a final NULL in named_groups_list */
+		while (i < (int) sizeof key_share_named_groups_list - 1 && *p != '\0')
+		{
+
+			while (*p != ',' && *p != '\0')
+				p++;
+
+			if (*p == ',' || *p == '\0') {
+
+				if (*p == ',')	*p++ = '\0';
+
+				if (strcmp(start, "secp256r1") == 0)
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP256R1;
+				else if (strcmp(start, "secp384r1") == 0)
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP384R1;
+				else if (strcmp(start, "secp521r1") == 0)
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP521R1;
+				else if (strcmp(start, "all") == 0) {
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP256R1;
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP384R1;
+					key_share_named_groups_list[i++] = MBEDTLS_ECP_DP_SECP521R1;
+					break;
+				}
+				else goto usage;
+				start = p;
+
+			}
+		}
+		if (i == 0) goto usage;
+	}
+#endif /* MBEDTLS_ECP_C */
+
+
     /*
      * 0. Initialize the RNG and the session data
      */
@@ -1205,12 +1347,25 @@ int main( int argc, char *argv[] )
         mbedtls_ssl_conf_encrypt_then_mac( &conf, opt.etm );
 #endif
 
+#if defined(MBEDTLS_CID)
+	if (opt.cid != MBEDTLS_CID_CONF_DISABLED)
+		mbedtls_ssl_conf_cid(&conf, opt.cid);
+#endif 
+
 #if defined(MBEDTLS_SSL_CBC_RECORD_SPLITTING)
     if( opt.recsplit != DFL_RECSPLIT )
         mbedtls_ssl_conf_cbc_record_splitting( &conf, opt.recsplit
                                     ? MBEDTLS_SSL_CBC_RECORD_SPLITTING_ENABLED
                                     : MBEDTLS_SSL_CBC_RECORD_SPLITTING_DISABLED );
 #endif
+
+#if defined(MBEDTLS_ECP_C)
+	if (named_groups_list[0]!= MBEDTLS_ECP_DP_NONE)
+		mbedtls_ssl_conf_curves(&conf, named_groups_list);
+	if (key_share_named_groups_list[0] != MBEDTLS_ECP_DP_NONE)
+		mbedtls_ssl_conf_key_share_curves(&conf, key_share_named_groups_list);
+
+#endif 
 
 #if defined(MBEDTLS_DHM_C)
     if( opt.dhmlen != DFL_DHMLEN )
@@ -1336,16 +1491,13 @@ int main( int argc, char *argv[] )
 			goto exit;
 		}
 	}
-
-
-
 #endif
 	 
 	if(opt.key_exchange_modes != KEY_EXCHANGE_MODE_NONE) {
 		mbedtls_ssl_conf_ke(&conf, opt.key_exchange_modes);
 	} else {
-	 mbedtls_printf(" failed\n  ! Some key exchange method needs to be provided %d\n\n", ret);
-	 goto exit;
+ 	  mbedtls_printf(" failed\n  ! Some key exchange method needs to be provided %d\n\n", ret);
+	  goto exit;
 	}
 
     if( opt.min_version != DFL_MIN_VERSION )
@@ -1423,13 +1575,18 @@ int main( int argc, char *argv[] )
         }
     }
 
-    mbedtls_printf( " ok\n    [ Protocol is %s ]\n    [ Ciphersuite is %s ]\n",
-            mbedtls_ssl_get_version( &ssl ), mbedtls_ssl_get_ciphersuite( &ssl ) );
+	mbedtls_printf(" ok\n    [ Protocol is %s ]\n    [ Ciphersuite is %s ]\n    [ Key Exchange Mode is %s ]\n",
+		mbedtls_ssl_get_version(&ssl), mbedtls_ssl_get_ciphersuite(&ssl), mbedtls_ssl_get_key_exchange_name(&ssl));
 
-    if( ( ret = mbedtls_ssl_get_record_expansion( &ssl ) ) >= 0 )
-        mbedtls_printf( "    [ Record expansion is %d ]\n", ret );
+    if( ( ret = mbedtls_ssl_get_record_expansion( &ssl, MBEDTLS_SSL_DIRECTION_OUT) ) >= 0 )
+        mbedtls_printf( "    [ Record expansion (outgoing) is %d ]\n", ret );
     else
-        mbedtls_printf( "    [ Record expansion is unknown (compression) ]\n" );
+        mbedtls_printf( "    [ Record expansion (outgoing) is unknown]\n" );
+
+	if ((ret = mbedtls_ssl_get_record_expansion(&ssl, MBEDTLS_SSL_DIRECTION_IN)) >= 0)
+		mbedtls_printf("    [ Record expansion (incoming) is %d ]\n", ret);
+	else
+		mbedtls_printf("    [ Record expansion (incoming) is unknown]\n");
 
 #if defined(MBEDTLS_SSL_MAX_FRAGMENT_LENGTH)
     mbedtls_printf( "    [ Maximum fragment length is %zu bytes]\n",
@@ -1459,33 +1616,36 @@ int main( int argc, char *argv[] )
 
         mbedtls_printf( " ok\n" );
     }
-#endif 
+#endif 	
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
-    /*
-     * 5. Verify the server certificate
-     */
-    mbedtls_printf( "  . Verifying peer X.509 certificate..." );
 
-    if( ( flags = mbedtls_ssl_get_verify_result( &ssl ) ) != 0 )
-    {
-        char vrfy_buf[512];
+	if (mbedtls_ssl_get_key_exchange(&ssl) == MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA) {
+		/*
+		 * 5. Verify the server certificate
+		 */
+		mbedtls_printf("  . Verifying peer X.509 certificate...");
 
-        mbedtls_printf( " failed\n" );
+		if ((flags = mbedtls_ssl_get_verify_result(&ssl)) != 0)
+		{
+			char vrfy_buf[512];
 
-        mbedtls_x509_crt_verify_info( vrfy_buf, sizeof( vrfy_buf ), "  ! ", flags );
+			mbedtls_printf(" failed\n");
 
-        mbedtls_printf( "%s\n", vrfy_buf );
-    }
-    else
-        mbedtls_printf( " ok\n" );
+			mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
 
-    if( mbedtls_ssl_get_peer_cert( &ssl ) != NULL )
-    {
-        mbedtls_printf( "  . Peer certificate information    ...\n" );
-        mbedtls_x509_crt_info( (char *) buf, sizeof( buf ) - 1, "      ",
-                       mbedtls_ssl_get_peer_cert( &ssl ) );
-        mbedtls_printf( "%s\n", buf );
-    }
+			mbedtls_printf("%s\n", vrfy_buf);
+		}
+		else
+			mbedtls_printf(" ok\n");
+
+		if (mbedtls_ssl_get_peer_cert(&ssl) != NULL)
+		{
+			mbedtls_printf("  . Peer certificate information    ...\n");
+			mbedtls_x509_crt_info((char *)buf, sizeof(buf) - 1, "      ",
+				mbedtls_ssl_get_peer_cert(&ssl));
+			mbedtls_printf("%s\n", buf);
+		}
+	}
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
 
 #if defined(MBEDTLS_SSL_RENEGOTIATION)
@@ -1513,7 +1673,7 @@ int main( int argc, char *argv[] )
     /*
      * 6. Write the GET request
      */
-    retry_left = opt.max_resend;
+    //retry_left = opt.max_resend;
 send_request:
     mbedtls_printf( "  > Write to server:" );
     fflush( stdout );
@@ -1585,14 +1745,9 @@ send_request:
     mbedtls_printf( "  < Read from server:" );
     fflush( stdout );
 
-    /*
-     * TLS and DTLS need different reading styles (stream vs datagram)
-     */
-    if( opt.transport == MBEDTLS_SSL_TRANSPORT_STREAM )
-    {
-        do
-        {
-            len = sizeof( buf ) - 1;
+        do  {
+
+			len = sizeof( buf ) - 1;
             memset( buf, 0, sizeof( buf ) );
             ret = mbedtls_ssl_read( &ssl, buf, len );
 
@@ -1609,11 +1764,17 @@ send_request:
                         ret = 0;
                         goto close_notify;
 
-                    case 0:
                     case MBEDTLS_ERR_NET_CONN_RESET:
                         mbedtls_printf( " connection was reset by peer\n" );
                         ret = 0;
                         goto reconnect;
+
+					case MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET:
+						/* We were waiting for application data but got a NewSessionTicket instead
+						* That's perfectly fine.
+						*/
+//						mbedtls_printf(" Received a ticket. \n");
+						continue;
 
                     default:
                         mbedtls_printf( " mbedtls_ssl_read returned -0x%x\n", -ret );
@@ -1632,44 +1793,7 @@ send_request:
                 ret = 0;
                 break;
             }
-        }
-        while( 1 );
-    }
-    else /* Not stream, so datagram */
-    {
-        len = sizeof( buf ) - 1;
-        memset( buf, 0, sizeof( buf ) );
-
-        do ret = mbedtls_ssl_read( &ssl, buf, len );
-        while( ret == MBEDTLS_ERR_SSL_WANT_READ ||
-               ret == MBEDTLS_ERR_SSL_WANT_WRITE );
-
-        if( ret <= 0 )
-        {
-            switch( ret )
-            {
-                case MBEDTLS_ERR_SSL_TIMEOUT:
-                    mbedtls_printf( " timeout\n" );
-                    if( retry_left-- > 0 )
-                        goto send_request;
-                    goto exit;
-
-                case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
-                    mbedtls_printf( " connection was closed gracefully\n" );
-                    ret = 0;
-                    goto close_notify;
-
-                default:
-                    mbedtls_printf( " mbedtls_ssl_read returned -0x%x\n", -ret );
-                    goto exit;
-            }
-        }
-
-        len = ret;
-        buf[len] = '\0';
-        mbedtls_printf( " %d bytes read\n\n%s", len, (char *) buf );
-        ret = 0;
-    }
+        } while( 1 );
 
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3) && defined(MBEDTLS_SSL_NEW_SESSION_TICKET)
 
@@ -1734,6 +1858,9 @@ send_request:
 
         goto send_request;
     }
+
+	mbedtls_printf(" ok\n    [ Protocol is %s ]\n    [ Ciphersuite is %s ]\n    [ Key Exchange Mode is %s ]\n",
+		mbedtls_ssl_get_version(&ssl), mbedtls_ssl_get_ciphersuite(&ssl), mbedtls_ssl_get_key_exchange_name(&ssl));
 
     /*
      * 7c. Continue doing data exchanges?

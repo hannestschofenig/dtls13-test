@@ -76,18 +76,6 @@ typedef enum {
     MBEDTLS_CIPHER_ID_ARC4,
 } mbedtls_cipher_id_t;
 
-/* 
-#if defined(MBEDTLS_SSL_PROTO_TLS1_3)
-
-typedef enum {
-	MBEDTLS_CIPHER_NONE = 0,
-	MBEDTLS_CIPHER_AES_128_GCM,
-	MBEDTLS_CIPHER_AES_256_GCM,
-	MBEDTLS_CIPHER_AES_128_CCM,
-	MBEDTLS_CIPHER_AES_128_CCM_8,
-} mbedtls_cipher_type_t;
-#else 
-*/
 typedef enum {
     MBEDTLS_CIPHER_NONE = 0,
     MBEDTLS_CIPHER_NULL,
@@ -135,14 +123,13 @@ typedef enum {
     MBEDTLS_CIPHER_AES_128_CCM,
 #if defined(MBEDTLS_SSL_PROTO_TLS1_3)
 	MBEDTLS_CIPHER_AES_128_CCM_8,
-#endif
+#endif /* MBEDTLS_SSL_PROTO_TLS1_3 */
     MBEDTLS_CIPHER_AES_192_CCM,
     MBEDTLS_CIPHER_AES_256_CCM,
     MBEDTLS_CIPHER_CAMELLIA_128_CCM,
     MBEDTLS_CIPHER_CAMELLIA_192_CCM,
     MBEDTLS_CIPHER_CAMELLIA_256_CCM,
 } mbedtls_cipher_type_t;
-//#endif
 
 typedef enum {
     MBEDTLS_MODE_NONE = 0,

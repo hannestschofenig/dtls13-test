@@ -33,6 +33,15 @@
 #define _CRT_SECURE_NO_DEPRECATE 1
 #endif
 
+/* These version numbers are used while the 
+ * TLS/DTLS 1.3 drafts are still in development.
+
+#define TLS_DRAFT_VERSION_MAJOR 0x3
+#define TLS_DRAFT_VERSION_MINOR 0x4
+#define DTLS_DRAFT_VERSION_MAJOR 0xfe
+#define DTLS_DRAFT_VERSION_MINOR 0xfd
+ */
+
 /**
 * \name SECTION: System support
 *
@@ -55,6 +64,31 @@
 * Comment to disable the use of assembly code.
 */
 //#define MBEDTLS_HAVE_ASM
+
+ /**
+ * \def MBEDTLS_CID
+ *
+ * The connection ID concept enhances DTLS to provide an
+ * alternative multiplexing mechanism.
+ *
+ * Requires: MBEDTLS_SSL_PROTO_DTLS
+ *
+ * Comment if you do not need the connection ID mechanism.
+ */
+//#define MBEDTLS_CID
+
+ /**
+ * \def MBEDTLS_CID_MAX_SIZE
+ *
+ * Indicates the size of the CID transmitted
+ * in the record layer.
+ *
+ * Requires: MBEDTLS_CID
+ *
+ * Set the value to 1 - 255 bytes. A shorter value reduces
+ * the per-packet overhead.
+ */
+//#define MBEDTLS_CID_MAX_SIZE 4
 
 /**
 * \def MBEDTLS_HAVE_SSE2
@@ -82,7 +116,7 @@
 * Allows to add functionality for TLS/DTLS 1.3 Zero-RTT.
 *
 */
-#define MBEDTLS_ZERO_RTT
+//#define MBEDTLS_ZERO_RTT
 
 
 /**
@@ -742,7 +776,7 @@
 *
 * Comment this macro to disable support for the max_fragment_length extension
 */
-#define MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
+//#define MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
 
 
 /**
@@ -788,6 +822,23 @@
 
 #define MBEDTLS_SSL_EARLY_DATA_MAX_DELAY 10000
 
+/**
+*  \def MBEDTLS_SSL_MAX_KEY_SHARES
+*
+* Defines the maximum number of key share entires in a 
+* key share extension advertised as part of the ClientHello. 
+* 
+* The impact of increasing the number of key shares is that 
+* a client needs to store more ECDHE key pairs and the 
+* transmission size of the ClientHello is increased as well. 
+* On the positive side this allows more rapid session
+* establishment in case there is no prior knowledge between
+* the client and the server about the supported algorithms 
+* and curves. 
+*
+*/
+
+#define MBEDTLS_SSL_MAX_KEY_SHARES 1
 
 /** 
 *  \def MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MIN
@@ -799,13 +850,12 @@
 * of 9 seconds with exponential back off up to no less then 60 seconds.
 *
 */
-
 // The value below are set for debugging purposes.
-
 #define MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MIN   600000
 #define MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MAX  1800000
-/*
+
 // These values represent resonable settings. 
+/*
 #define MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MIN   1000
 #define MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MAX  60000
 */
@@ -833,7 +883,7 @@
 *
 * Comment this macro to disable support for ALPN.
 */
-#define MBEDTLS_SSL_ALPN
+//#define MBEDTLS_SSL_ALPN
 
 
 /**
@@ -1642,7 +1692,7 @@
 *
 * This module adds support for SHA-512 and SHA-384.
 */
-#define MBEDTLS_SHA512_C
+//#define MBEDTLS_SHA512_C
 
 /**
 * \def MBEDTLS_SSL_CACHE_C
@@ -1743,6 +1793,17 @@
 * Enable this layer to allow use of mutexes within mbed TLS
 */
 //#define MBEDTLS_THREADING_C
+
+/**
+* \def MBEDTLS_COMPATIBILITY_MODE
+*
+* Enable the compatibility mode for TLS 1.3.
+*
+* Requires: MBEDTLS_SSL_PROTO_TLS1_3
+*
+*/
+//#define MBEDTLS_COMPATIBILITY_MODE
+
 
 /**
 * \def MBEDTLS_TIMING_C
@@ -1913,6 +1974,7 @@
 
 /* Memory buffer allocator options */
 //#define MBEDTLS_MEMORY_ALIGN_MULTIPLE      4 /**< Align on multiples of this value */
+
 
 /* Platform options */
 //#define MBEDTLS_PLATFORM_STD_MEM_HDR   <stdlib.h> /**< Header to include if MBEDTLS_PLATFORM_NO_STD_FUNCTIONS is defined. Don't define if no header is needed. */

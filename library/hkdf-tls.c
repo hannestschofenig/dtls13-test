@@ -25,6 +25,13 @@
 #include MBEDTLS_CONFIG_FILE
 #endif
 
+//#if defined(MBEDTLS_SSL_TLS_C)
+
+#include "mbedtls/debug.h"
+#include "mbedtls/ssl.h"
+#include "mbedtls/ssl_internal.h"
+
+
 #include "mbedtls/hkdf.h"
 #include "mbedtls/hkdf-tls.h"
 #include <stdint.h>
@@ -40,7 +47,7 @@
 #define mbedtls_free       free
 #endif
 
-int Derive_Secret(mbedtls_md_type_t hash_alg,
+int Derive_Secret(mbedtls_ssl_context *ssl, mbedtls_md_type_t hash_alg,
 	              const unsigned char *secret, int slen,
                   const unsigned char *label, int llen, 
 	              const unsigned char *message, int mlen, 
@@ -61,7 +68,7 @@ int Derive_Secret(mbedtls_md_type_t hash_alg,
 		return -1;  
 	}
 
-    hashValue = calloc(L,1);
+    hashValue = mbedtls_calloc(L,1);
     if (hashValue == NULL) {
 		mbedtls_printf("calloc() failed in Derive_Secret().");
         return -1;  
@@ -71,6 +78,7 @@ int Derive_Secret(mbedtls_md_type_t hash_alg,
 
 	if (mlen != L) {
 		mbedtls_printf("Derive_Secret: Incorrect length of hash - mlen (%d) != L (%d)\n",mlen, L);
+		mbedtls_free(hashValue); 
 		return -1;
 
 	}
@@ -79,9 +87,19 @@ int Derive_Secret(mbedtls_md_type_t hash_alg,
     ret = hkdfExpandLabel(hash_alg, secret, slen, label, llen, hashValue, L,
                           L, dstbuf, buflen);
 
+#if defined(HKDF_DEBUG)
+	MBEDTLS_SSL_DEBUG_MSG(5, ("Derive-Secret")); 
+	MBEDTLS_SSL_DEBUG_BUF(5, "Label", label, llen);
+	MBEDTLS_SSL_DEBUG_BUF(5, "Secret", secret, slen);
+	MBEDTLS_SSL_DEBUG_BUF(5, "Hash", hashValue, L);
+	MBEDTLS_SSL_DEBUG_BUF(5, "Derived Key", dstbuf, buflen);
+#endif 
+
+	mbedtls_free(hashValue);
+
     if (ret < 0) {
 		mbedtls_printf("hkdfExpandLabel(): Error %d.\n", ret);
-        return ret;
+		return ret;
     }
 
     return ret;
@@ -102,7 +120,7 @@ int Derive_Secret(mbedtls_md_type_t hash_alg,
 * [sender] denotes the sending side and the Secret value is provided by the function caller. 
 * We generate server and client side keys in a single function call. 
 */
-int makeTrafficKeys(int hash_alg, 
+int makeTrafficKeys(mbedtls_md_type_t hash_alg, 
 	const unsigned char *client_key, 
 	const unsigned char *server_key,
 	int slen, 
@@ -111,7 +129,7 @@ int makeTrafficKeys(int hash_alg,
 {
 	int ret = 0; 
 
-	keys->clientWriteKey = calloc(keyLen,1);
+	keys->clientWriteKey = mbedtls_calloc(keyLen,1);
 	if (keys->clientWriteKey == NULL) {
 		mbedtls_printf("makeTrafficKeys(): Error allocating clientWriteKey.\n");
 		return (MBEDTLS_ERR_HKDF_BUFFER_TOO_SMALL);
@@ -126,7 +144,7 @@ int makeTrafficKeys(int hash_alg,
 		return (ret);
 	}
 
-	keys->serverWriteKey = calloc(keyLen,1);
+	keys->serverWriteKey = mbedtls_calloc(keyLen,1);
 	if (keys->serverWriteKey == NULL) {
 		mbedtls_printf("makeTrafficKeys(): Error allocating serverWriteKey.\n");
 		return (ret);
@@ -142,7 +160,7 @@ int makeTrafficKeys(int hash_alg,
     }
 
     // Compute clientWriteIV
-	keys->clientWriteIV = calloc(ivLen,1);
+	keys->clientWriteIV = mbedtls_calloc(ivLen,1);
 	if (keys->clientWriteIV == NULL) {
 		mbedtls_printf("makeTrafficKeys(): Error allocating clientWriteIV.\n");
 		return (ret);
@@ -158,7 +176,7 @@ int makeTrafficKeys(int hash_alg,
 	}
 
     // Compute serverWriteIV
- 	keys->serverWriteIV = calloc(ivLen+4,1);
+ 	keys->serverWriteIV = mbedtls_calloc(ivLen+4,1);
 	if (keys->serverWriteIV == NULL) {
 		mbedtls_printf("makeTrafficKeys(): Error allocating serverWriteIV.\n");
 		return (ret);
@@ -173,10 +191,56 @@ int makeTrafficKeys(int hash_alg,
         return (ret);
     }
 
+#if defined(MBEDTLS_SSL_PROTO_DTLS)
+
+	// Compute client_sn_key
+	keys->client_sn_key = mbedtls_calloc(keyLen, 1);
+	if (keys->client_sn_key == NULL) {
+		mbedtls_printf("makeTrafficKeys(): Error allocating client_sn_key.\n");
+		return (ret);
+	}
+
+	ret = hkdfExpandLabel(hash_alg, client_key, slen, (const unsigned char *) "sn", 2,
+		(const unsigned char *)"", 0, keyLen,
+		keys->client_sn_key, keyLen);
+
+	if (ret < 0) {
+		mbedtls_printf("makeTrafficKeys(): Error for client_sn_key %d.\n", ret);
+		return (ret);
+	}
+
+	// Compute server_sn_key
+	keys->server_sn_key = mbedtls_calloc(keyLen, 1);
+	if (keys->server_sn_key == NULL) {
+		mbedtls_printf("makeTrafficKeys(): Error allocating server_sn_key.\n");
+		return (ret);
+	}
+
+	ret = hkdfExpandLabel(hash_alg, server_key, slen, (const unsigned char *) "sn", 2,
+		(const unsigned char *)"", 0, keyLen,
+		keys->server_sn_key, keyLen);
+
+	if (ret < 0) {
+		mbedtls_printf("makeTrafficKeys(): Error for server_sn_key %d.\n", ret);
+		return (ret);
+	}
+
+#endif /* MBEDTLS_SSL_PROTO_DTLS */
+
+
+	// Set epoch value to "undefined"
+#if defined(MBEDTLS_SSL_PROTO_DTLS)
+	keys->epoch = -1; 
+#endif /* MBEDTLS_SSL_PROTO_DTLS */
+
+	// Set key length 
+	// Set IV length 
+	keys->keyLen = keyLen;
+	keys->ivLen = ivLen; 
     return 0;
 }
 
-int hkdfExpandLabel(int hash_alg, const unsigned char *secret, int slen,
+int hkdfExpandLabel(mbedtls_md_type_t hash_alg, const unsigned char *secret, int slen,
                     const unsigned char *label, int llen,
                     const unsigned char *hashValue, int hlen, int length,
                     unsigned char *buf, int blen)
@@ -184,17 +248,23 @@ int hkdfExpandLabel(int hash_alg, const unsigned char *secret, int slen,
     int ret = 0;
     int len;
 	const mbedtls_md_info_t *md;
-    unsigned char *temp_buffer = NULL;
+    unsigned char *info = NULL;
 
-    /* Compute length of the final output, which 
-	 * is based on the length of the label and the 
-	 * hash value.
+    /* Compute length of info, which 
+	 * is computed as follows:
+     * 
+     * struct {
+     *  uint16 length = Length;
+     *   opaque label<7..255> = "tls13 " + Label;
+     *   opaque context<0..255> = Context;
+     * } HkdfLabel;
+	 *
 	 */
-    len = 2 + 1 + llen + 1 + hlen + 9;
+    len = 2 + 1 + llen + 1 + hlen + 6;
 
 #if defined(HKDF_DEBUG)
 	// ----------------------------- DEBUG ---------------------------
-	mbedtls_printf("HKDF Expand with label [TLS 1.3, ");
+	mbedtls_printf("HKDF Expand with label [tls13 ");
 	for (int i = 0; i < llen; i++) {
 		mbedtls_printf("%c", label[i]);
 	}
@@ -215,19 +285,32 @@ int hkdfExpandLabel(int hash_alg, const unsigned char *secret, int slen,
 	// ----------------------------- DEBUG ---------------------------
 #endif
 
-	temp_buffer = calloc(len,1);
+	info = mbedtls_calloc(len,1);
 
-    if (temp_buffer == NULL) {
+    if (info == NULL) {
 		mbedtls_printf("calloc() failed in hkdfExpandLabel().");
         return (MBEDTLS_ERR_HKDF_BUFFER_TOO_SMALL);
     }
 
-    ret = hkdfEncodeLabel(label, llen, hashValue, hlen, temp_buffer, length);
+    ret = hkdfEncodeLabel(label, llen, hashValue, hlen, info, length);
 	
     if (ret < 0) {
 		mbedtls_printf("hkdfEncodeLabel(): Error %d.\n", ret);
         goto clean_up;
     }
+
+
+#if defined(HKDF_DEBUG)
+	// ----------------------------- DEBUG ---------------------------
+
+	mbedtls_printf("Info (%d):", len);
+	for (int i = 0; i < len; i++) {
+		mbedtls_printf("%02x", info[i]);
+	}
+	mbedtls_printf("\n");
+
+	// ----------------------------- DEBUG ---------------------------
+#endif
 
 	md = mbedtls_md_info_from_type(hash_alg);
 
@@ -236,7 +319,7 @@ int hkdfExpandLabel(int hash_alg, const unsigned char *secret, int slen,
 		goto clean_up;
 	}
 
-    ret = mbedtls_hkdf_expand(md, secret, slen, temp_buffer, len, buf, blen);
+    ret = mbedtls_hkdf_expand(md, secret, slen, info, len, buf, blen);
 
     if (ret != 0) {
 		mbedtls_printf("hkdfExpand(): Error %d.\n", ret);
@@ -255,39 +338,38 @@ int hkdfExpandLabel(int hash_alg, const unsigned char *secret, int slen,
 	// ----------------------------- DEBUG ---------------------------
 #endif
 clean_up:
-	mbedtls_free(temp_buffer);
+	mbedtls_free(info);
     return ret;
 }
 
 /*
- * hkdfEncodeLabel creates the HkdfLabel structure.
+ * The hkdfEncodeLabel() function creates the HkdfLabel structure.
+ *
+ * The function assumes that the info buffer space has been 
+ * allocated accordingly and no further length checking is needed. 
  * 
- * HkdfLabel is specified as:
+ * The HkdfLabel is specified in the TLS 1.3 spec as follows:
  * 
  * struct HkdfLabel {
  *   uint16 length;
- *   opaque label<9..255>;
- *   opaque hash_value<0..255>;
+ *   opaque label<7..255>;
+ *   opaque context<0..255>;
  * };
  * 
  * - HkdfLabel.length is Length
- * - HkdfLabel.label is "TLS 1.3, " + Label
- * - HkdfLabel.hash_value is HashValue.
+ * - HkdfLabel.label is "tls13 " + Label
+ * - HkdfLabel.context is HashValue.
  */
 
 int hkdfEncodeLabel(const unsigned char *label, int llen,
                     const unsigned char *hashValue, int hlen,
-                    unsigned char *buf, int length)
+                    unsigned char *info, int length)
 {
-    unsigned char *p = buf;
-    char constant[10] = "TLS 1.3, ";
+    unsigned char *p = info;
+    char constant[7] = "tls13 ";
     int labelLen; 
 
-#if defined(HKDF_DEBUG)
-   int total_length;
-   total_length = 2 + 1 + labelLen + 1 + hlen;
-#endif
-    labelLen = (strlen((const char *)constant) + llen);
+   labelLen = (strlen((const char *)constant) + llen);
 
     // create header
     *p++ = (unsigned char)((length >> 8) & 0xFF);
@@ -306,20 +388,6 @@ int hkdfEncodeLabel(const unsigned char *label, int llen,
 
     // copy hash value
     memcpy(p, hashValue, hlen);
-
-    p += (unsigned char)hlen;
-
-#if defined(HKDF_DEBUG)
-	// ----------------------------- DEBUG ---------------------------
-
-	mbedtls_printf("Info (%d): ", total_length);
-	for (int i = 0; i < total_length; i++) {
-		mbedtls_printf("%02x", buf[i]);
-	}
-	mbedtls_printf("\n");
-
-	// ----------------------------- DEBUG ---------------------------
-#endif
 
     return 0;
 }
